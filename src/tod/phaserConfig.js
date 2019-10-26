@@ -210,6 +210,7 @@ function hitShip (ship, enemy)
 
   if (shipHp <= 0) {
     this.cameras.main.shake(2000, 0.05);
+    ship.setActive(false);
     ship.setVisible(false);
     gameOver = true;
   } else {
@@ -230,6 +231,8 @@ function hitEnemy (bullet, enemy)
 
 function updateDirect (time)
 {
+  shipHpText.setText([`HP: ${shipHp}`, `Points: ${enemiesKilled*10}` ]);
+
   if (gameOver){
     gameOverMsg.setVisible(true);
     return;
@@ -264,6 +267,4 @@ function updateDirect (time)
       lastFired = time + 100;
     }
   }
-
-  shipHpText.setText([`HP: ${shipHp}`, `Points: ${enemiesKilled*10}` ]);
 }
