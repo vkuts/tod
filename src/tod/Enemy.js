@@ -13,7 +13,7 @@ export default new Phaser.Class({
 
       this.setDepth(1);
 
-      this.speed = 100;
+      this.speed = 50;
       this.checkOutOfBounds = false;
       this.target = new Phaser.Math.Vector2();
     },
@@ -24,19 +24,20 @@ export default new Phaser.Class({
 
     this.checkOutOfBounds = false;
 
-    var p = Phaser.Geom.Rectangle.RandomOutside(spaceOuter, spaceInner);
+    // var p = Phaser.Geom.Rectangle.RandomOutside(spaceOuter, spaceInner);
 
     spaceInner.getRandomPoint(this.target);
+    spaceInner.getRandomPoint(this);
 
-    this.speed = Phaser.Math.Between(100, 400);
+    this.speed = Phaser.Math.Between(50, 200);
 
     this.setActive(true);
     this.setVisible(true);
-    this.setPosition(p.x, p.y);
+    // this.setPosition(p.x, p.y);
 
-    this.body.reset(p.x, p.y);
+    this.body.reset(this.x, this.y);
 
-    var angle = Phaser.Math.Angle.BetweenPoints(p, this.target);
+    var angle = Phaser.Math.Angle.BetweenPoints(this, this.target);
 
     this.scene.physics.velocityFromRotation(angle, this.speed, this.body.velocity);
   },

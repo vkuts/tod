@@ -7,13 +7,16 @@ import Enemy from './Enemy';
 
 export const mainDivId = 'mainDivId';
 
+const ScreenWidth = 800;
+const ScreenHeight = 600;
 
 var config = {
   parent: mainDivId,
   type: Phaser.AUTO,
-  width: 800,
-  height: 600,
+  width: ScreenWidth,
+  height: ScreenHeight,
   pixelArt: true,
+  backgroundColor: '#2d2d2d',
   // physics: {
   //   default: 'arcade',
   // },
@@ -31,6 +34,7 @@ var config = {
     update: updateDirect,
     extend: {
       checkBulletVsEnemy: checkBulletVsEnemy,
+      checkEnemyVsShip: checkEnemyVsShip,
       launchEnemy: launchEnemy,
       hitShip: hitShip,
       hitEnemy: hitEnemy
@@ -49,8 +53,16 @@ var lastFired = 0;
 var fire;
 var xparticles;
 
+let shipHp = 20;
+let enemiesKilled = 0;
+let shipHpText = '';
+
+let gameOver = false;
+let gameOverMsg;
+
 function preload () {
   this.load.setBaseURL(TOD_BASE_URL);
+  this.load.bitmapFont('atari', 'assets/fonts/atari-smooth.png', 'assets/fonts/atari-smooth.xml');
   this.load.image('ship', 'assets/fmship.png');
   this.load.image('ufo', 'assets/ufo.png');
   this.load.image('rocket', 'assets/projectiles/rocket.png');
@@ -90,6 +102,7 @@ function create () {
   });
 
   this.physics.add.overlap(bullets, enemies, this.hitEnemy, this.checkBulletVsEnemy, this);
+  this.physics.add.overlap(ship, enemies, this.hitShip, this.checkEnemyVsShip, this);
 
   xparticles = this.add.particles('explosion');
 
@@ -104,15 +117,15 @@ function create () {
       on: false
   });
 
-  xparticles.createEmitter({
-    frame: 'red',
-    angle: { min: 0, max: 360, steps: 32 },
-    lifespan: 1000,
-    speed: 400,
-    quantity: 32,
-    scale: { start: 0.3, end: 0 },
-    on: false
-  });
+  // xparticles.createEmitter({
+  //   frame: 'red',
+  //   angle: { min: 0, max: 360, steps: 32 },
+  //   lifespan: 1000,
+  //   speed: 400,
+  //   quantity: 32,
+  //   scale: { start: 0.3, end: 0 },
+  //   on: false
+  // });
 
   xparticles.createEmitter({
     frame: 'muzzleflash2',
@@ -158,7 +171,14 @@ function create () {
     this.launchEnemy();
   }
 
-  // this.cameras.main.setZoom(0.25);
+  // var graphics = this.add.graphics({ x: 0, y: 0, fillStyle: { color: 0xff00ff, alpha: 0.6 }, lineStyle: { color: 0x00ff00 } });
+  shipHpText = this.add.text(ScreenWidth-300, 100).setScrollFactor(0);
+  gameOverMsg = this.add.text(ScreenWidth / 2.0 - 40, ScreenHeight / 2.0 - 40)
+    .setText('Game Over').setColor('#EF1903').setFontSize(16).setScrollFactor(0).setVisible(false);
+  // var bounds1 = shipHpText.getTextBounds();
+  // graphics.fillRect(bounds1.global.x, bounds1.global.y, bounds1.global.width, bounds1.global.height);
+
+  this.cameras.main.setZoom(1.5);
 }
 
 function launchEnemy ()
@@ -176,22 +196,45 @@ function checkBulletVsEnemy (bullet, enemy)
   return (bullet.active && enemy.active);
 }
 
+function checkEnemyVsShip(enemy) {
+  return enemy.active;
+}
+
 function hitShip (ship, enemy)
 {
+  xparticles.emitParticleAt(enemy.x, enemy.y);
+
+  shipHp -= 10;
+  enemiesKilled += 1;
+  enemy.kill();
+
+  if (shipHp <= 0) {
+    this.cameras.main.shake(2000, 0.05);
+    ship.setVisible(false);
+    gameOver = true;
+  } else {
+    this.cameras.main.shake(500, 0.01);
+  }
 }
 
 function hitEnemy (bullet, enemy)
 {
   xparticles.emitParticleAt(enemy.x, enemy.y);
 
-  this.cameras.main.shake(500, 0.01);
+  this.cameras.main.shake(300, 0.005);
 
+  enemiesKilled += 1;
   bullet.kill();
   enemy.kill();
 }
 
 function updateDirect (time)
 {
+  if (gameOver){
+    gameOverMsg.setVisible(true);
+    return;
+  }
+
   const angularDelta = 2;
   const speed = 3;
   if (cursors.left.isDown)
@@ -221,4 +264,6 @@ function updateDirect (time)
       lastFired = time + 100;
     }
   }
+
+  shipHpText.setText([`HP: ${shipHp}`, `Points: ${enemiesKilled*10}` ]);
 }
