@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { TOD_BASE_URL } from './consts';
 
 import { WorldWidth, WorldHeight } from './World';
+import { Player, PlayerStates } from './Player';
 import Bullet from './Bullet';
 import Enemy from './Enemy';
 
@@ -31,7 +32,7 @@ var config = {
   scene: {
     preload: preload,
     create: create,
-    update: updateDirect,
+    update: update,
     extend: {
       checkBulletVsEnemy: checkBulletVsEnemy,
       checkEnemyVsShip: checkEnemyVsShip,
@@ -46,6 +47,8 @@ const game = new Phaser.Game(config);
 let cursors;
 
 let ship;
+let playerHandgun;
+let player;
 var text;
 var bullets;
 var enemies;
@@ -69,25 +72,25 @@ function preload () {
   this.load.image('bullet', 'assets/projectiles/bullet.png');
   this.load.tilemapTiledJSON('map', 'assets/desert.json');
   this.load.image('tiles', 'assets/tmw_desert_spacing.png');
+  this.load.spritesheet('player_handgun', 'assets/player_handgun.png',
+    { frameWidth: 66, frameHeight: 60 }
+  );
 
   this.load.atlas('space', 'assets/space.png', 'assets/space.json');
   this.load.atlas('explosion', 'assets/explosion.png', 'assets/explosion.json');
 }
 
 function create () {
+  this.physics.world.setBounds(0, 0, WorldWidth, WorldHeight);
   this.cameras.main.setBounds(0, 0, WorldWidth, WorldHeight);
-  // this.matter.world.setBounds(0, 0, WorldWidth, WorldHeight);
 
   const map = this.make.tilemap({ key: 'map' });
   const tiles = map.addTilesetImage('Desert', 'tiles');
   // layer = map.createDynamicLayer('Ground', tiles, 0, 0).setVisible(false);
   var layer = map.createStaticLayer('Ground', tiles, 0, 0);
 
+
   cursors = this.input.keyboard.createCursorKeys();
-
-  ship = this.physics.add.image(400, 100, 'ship').setDepth(2);
-
-  this.cameras.main.startFollow(ship, true, 0.08, 0.08);
 
   bullets = this.physics.add.group({
     classType: Bullet,
@@ -101,8 +104,43 @@ function create () {
     runChildUpdate: true
   });
 
+  const playerSpriteNameMap = {
+    [PlayerStates.Vehicle]: { name: 'ship', size: { width: 60, height: 60 } },
+    [PlayerStates.OnFoot]: { name: 'player_handgun', size: { width: 30, height: 30 } },
+  };
+  const playerSpriteMap = {};
+  Object.keys(playerSpriteNameMap).forEach(state => {
+    const { name, size }  = playerSpriteNameMap[state];
+    const sprite = this.physics.add.image(0, 0, name)
+      .setOrigin(0.5, 0.5).setDisplaySize(size.width, size.height)
+      .setDepth(2).setActive(false).setVisible(false);
+    playerSpriteMap[state] = sprite;
+  });
+
+  player = new Player({
+    spriteMap: playerSpriteMap,
+    initState: PlayerStates.Vehicle,
+    initPosition: { x: 400, y: 100 },
+    physics: this.physics,
+    cursors: cursors,
+    camera: this.cameras.main,
+    onSpriteChange: onPlayerSpriteChange.bind(this),
+  });
+
+
+  let spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);
+  spaceKey.on('down', function (key, event) {
+    player.toggleState();
+  });
+  // ship = this.physics.add.image(400, 100, 'ship').setDepth(2)
+  //   .setCollideWorldBounds(true); // new Player();
+  // this.physics.add.existing(ship);
+    // new Player()).setDepth(2);
+  // this.cameras.main.startFollow(ship, true, 0.08, 0.08);
+
+
+
   this.physics.add.overlap(bullets, enemies, this.hitEnemy, this.checkBulletVsEnemy, this);
-  this.physics.add.overlap(ship, enemies, this.hitShip, this.checkEnemyVsShip, this);
 
   xparticles = this.add.particles('explosion');
 
@@ -135,36 +173,36 @@ function create () {
     on: false
   });
 
-  var particles = this.add.particles('space');
+  // var particles = this.add.particles('space');
 
-  var emitter = particles.createEmitter({
-    frame: 'blue',
-    speed: 200,
-    lifespan: {
-      onEmit: function (particle, key, t, value)
-      {
-        return Phaser.Math.Percent(ship.body.speed, 0, 400) * 2000;
-      }
-    },
-    alpha: {
-      onEmit: function (particle, key, t, value)
-      {
-        return Phaser.Math.Percent(ship.body.speed, 0, 400);
-      }
-    },
-    angle: {
-      onEmit: function (particle, key, t, value)
-      {
-        // var v = Phaser.Math.Between(-10, 10);
-        var v = 0;
-        return (ship.angle - 180) + v;
-      }
-    },
-    scale: { start: 0.6, end: 0 },
-    blendMode: 'ADD'
-  });
-
-  emitter.startFollow(ship);
+  // var emitter = particles.createEmitter({
+  //   frame: 'blue',
+  //   speed: 200,
+  //   lifespan: {
+  //     onEmit: function (particle, key, t, value)
+  //     {
+  //       return Phaser.Math.Percent(ship.body.speed, 0, 400) * 2000;
+  //     }
+  //   },
+  //   alpha: {
+  //     onEmit: function (particle, key, t, value)
+  //     {
+  //       return Phaser.Math.Percent(ship.body.speed, 0, 400);
+  //     }
+  //   },
+  //   angle: {
+  //     onEmit: function (particle, key, t, value)
+  //     {
+  //       // var v = Phaser.Math.Between(-10, 10);
+  //       var v = 0;
+  //       return (ship.angle - 180) + v;
+  //     }
+  //   },
+  //   scale: { start: 0.6, end: 0 },
+  //   blendMode: 'ADD'
+  // });
+  //
+  // emitter.startFollow(ship);
 
   for (var i = 0; i < 6; i++)
   {
@@ -179,6 +217,12 @@ function create () {
   // graphics.fillRect(bounds1.global.x, bounds1.global.y, bounds1.global.width, bounds1.global.height);
 
   this.cameras.main.setZoom(1.5);
+}
+
+function onPlayerSpriteChange(newSprite) {
+  this.physics.add.overlap(newSprite, enemies, this.hitShip, this.checkEnemyVsShip, this);
+  this.cameras.main.pan(newSprite.x, newSprite.y, 0.5);
+  this.cameras.main.startFollow(newSprite, true, 0.08, 0.08);
 }
 
 function launchEnemy ()
@@ -229,7 +273,7 @@ function hitEnemy (bullet, enemy)
   enemy.kill();
 }
 
-function updateDirect (time)
+function update (time, delta)
 {
   shipHpText.setText([`HP: ${shipHp}`, `Points: ${enemiesKilled*10}` ]);
 
@@ -238,23 +282,24 @@ function updateDirect (time)
     return;
   }
 
-  const angularDelta = 2;
-  const speed = 3;
-  if (cursors.left.isDown)
-  {
-    ship.setAngle(ship.angle - angularDelta);
-    // ship.x -= 2.5;
-  }
-  else if (cursors.right.isDown)
-  {
-    ship.setAngle(ship.angle + angularDelta);
-  }
-
-  if (cursors.up.isDown)
-  {
-    ship.x += speed * Math.cos(ship.rotation);
-    ship.y += speed * Math.sin(ship.rotation);
-  }
+  player.update(time, delta, cursors);
+  // const angularDelta = 2;
+  // const speed = 3;
+  // if (cursors.left.isDown)
+  // {
+  //   ship.setAngle(ship.angle - angularDelta);
+  //   // ship.x -= 2.5;
+  // }
+  // else if (cursors.right.isDown)
+  // {
+  //   ship.setAngle(ship.angle + angularDelta);
+  // }
+  //
+  // if (cursors.up.isDown)
+  // {
+  //   ship.x += speed * Math.cos(ship.rotation);
+  //   ship.y += speed * Math.sin(ship.rotation);
+  // }
 
   if (cursors.space.isDown && time > lastFired)
   {
@@ -262,7 +307,7 @@ function updateDirect (time)
 
     if (bullet)
     {
-      bullet.fire(ship);
+      bullet.fire(player.activeSprite);
 
       lastFired = time + 100;
     }
